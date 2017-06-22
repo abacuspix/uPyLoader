@@ -194,7 +194,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.localFilesTreeView.setRootIndex(model.index(self._root_dir))
 
     def list_mcu_files(self):
-        file_list=[]
         try:
             file_list = self._connection.list_files()
         except OperationError:
@@ -367,18 +366,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def compile_files(self):
         local_file_paths = self.get_local_file_selection()
         for path in local_file_paths:
-            last_slash_idx = path.rfind("/")+1
+            last_slash_idx = path.rfind("/") + 1
             directory = path[:last_slash_idx]
             name = path[last_slash_idx:]
-            subprocess.Popen([Settings().mpy_cross_path, name], cwd=directory)
-        time.sleep(1)           # Delay needed to allow compile to finish
-        self.update_file_tree() # Refresh to show updated timestamp on mpy file
+            with subprocess.Popen([Settings().mpy_cross_path, name], cwd=directory) as proc:
+                proc.wait()  # Wait for process to finish
+
+        # TODO: Causes expanded nodes to collapse
+        # self.update_file_tree()  # Refresh to show updated timestamp on mpy file
 
     def finished_read_mcu_file(self, file_name, transfer):
         assert isinstance(transfer, FileTransfer)
         result = transfer.read_result
         text = result.binary_data.decode("utf-8",
-                                         errors="replace") if result.binary_data is not None else "!Failed to read file!"
+                     errors="replace") if result.binary_data is not None else "!Failed to read file!"
         self.open_code_editor()
         self._code_editor.set_code(None, file_name, text)
 
@@ -502,6 +503,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._settings_dialog = None
         # Update compile button as mpy-cross path might have been set
         self.update_compile_button()
+
 
 # Main Function
 if __name__ == '__main__':
